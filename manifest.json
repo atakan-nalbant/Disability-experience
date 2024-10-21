@@ -5,7 +5,8 @@
   "description": "A tool to simulate the experience of users with disabilities by highlighting accessibility issues.",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"  // Add this line for storage permission
   ],
   "host_permissions": [
     "<all_urls>"

@@ -1,3 +1,4 @@
+// Create a button for the Disability Experience Mode
 let button = document.createElement('button');
 button.id = 'disability-mode-button';
 button.innerText = 'Enable Disability Experience Mode';
@@ -16,25 +17,47 @@ document.body.appendChild(button);
 
 let isModeEnabled = false;
 
-button.addEventListener('click', function () {
-    isModeEnabled = !isModeEnabled;
-    button.innerText = isModeEnabled
-        ? 'Disable Disability Experience Mode'
-        : 'Enable Disability Experience Mode';
-
-    if (isModeEnabled) {
-        // Inject axe.min.js and run the test within the page context
-        injectAxeCoreScript();
+// Check if the mode was previously enabled and apply it
+chrome.storage.sync.get(['disabilityModeEnabled'], function (result) {
+    if (result.disabilityModeEnabled) {
+        enableDisabilityMode();
     } else {
-        location.reload(); // Reload the page to reset
+        // If disabled, make sure it remains disabled and no test is run
+        disableDisabilityMode();
     }
 });
 
+button.addEventListener('click', function () {
+    isModeEnabled = !isModeEnabled;
+    if (isModeEnabled) {
+        enableDisabilityMode();
+        // Store the mode as enabled
+        chrome.storage.sync.set({ disabilityModeEnabled: true });
+    } else {
+        disableDisabilityMode();
+        // Store the mode as disabled
+        chrome.storage.sync.set({ disabilityModeEnabled: false });
+    }
+});
+
+function enableDisabilityMode() {
+    button.innerText = 'Disable Disability Experience Mode';
+    injectAxeCoreScript(); // Axe Core is only injected if the mode is enabled
+}
+
+function disableDisabilityMode() {
+    button.innerText = 'Enable Disability Experience Mode';
+    // Ensure Axe Core is not injected or run
+    isModeEnabled = false; // No need to inject or run the test when disabled
+    // Do not reload the page automatically in this case, just stop further actions
+}
+
 function injectAxeCoreScript() {
-    chrome.runtime.sendMessage({action: "injectAxe"}, (response) => {
+    // Inject Axe Core and run the test only if the mode is enabled
+    chrome.runtime.sendMessage({ action: "injectAxe" }, (response) => {
         if (response.success) {
             console.log('Axe Core injected successfully');
-            runAxeTest();
+            runAxeTest(); // Proceed to run the test only if Axe Core is successfully injected
         } else {
             console.error('Axe Core injection failed');
         }
@@ -42,7 +65,12 @@ function injectAxeCoreScript() {
 }
 
 function runAxeTest() {
-    chrome.runtime.sendMessage({action: "runAxeTest"}, (response) => {
+    // Ensure the mode is enabled before running the test
+    if (!isModeEnabled) {
+        return; // Do not run the test if the mode is disabled
+    }
+
+    chrome.runtime.sendMessage({ action: "runAxeTest" }, (response) => {
         if (response.success && response.results) {
             response.results.violations.forEach(function (violation) {
                 violation.nodes.forEach(function (node) {
